@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cycle Count Dashboard - Month-over-Month Comparison</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+            --light-color: #ecf0f1;
+            --dark-color: #2c3e50;
+            --gray-color: #95a5a6;
+            --current-month: #3498db;
+            --previous-month: #95a5a6;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        /* Header Section */
+        .header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+        
+        .header-info {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .month-selector {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 10px;
+        }
+        
+        .month-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+        
+        .month-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+        
+        .current-month {
+            font-size: 18px;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 8px 20px;
+            border-radius: 20px;
+        }
+        
+        /* KPI Cards */
+        .kpi-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .kpi-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border-left: 5px solid var(--secondary-color);
+        }
+        
+        .kpi-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+        }
+        
+        .kpi-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .kpi-title {
+            font-size: 14px;
+            color: var(--gray-color);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .kpi-value {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: var(--primary-color);
+        }
+        
+        .kpi-comparison {
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
+        
+        .comparison-value {
+            display: flex;
+            align-items: center;
+            margin-right: 15px;
+        }
+        
+        .comparison-value.positive {
+            color: var(--success-color);
+        }
+        
+        .comparison-value.negative {
+            color: var(--danger-color);
+        }
+        
+        .comparison-value i {
+            margin-right: 5px;
+        }
+        
+        /* Comparison Section */
+        .comparison-section {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        }
+        
+        .section-title {
+            display: flex;
+            align-items: center;
+            margin-bottom: 25px;
+            color: var(--primary-color);
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        
+        .section-title i {
+            margin-right: 10px;
+            color: var(--secondary-color);
+        }
+        
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+        }
+        
+        .comparison-chart-container {
+            height: 350px;
+        }
+        
+        /* Month Comparison Table */
+        .month-comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .month-comparison-table th {
+            background-color: #f8f9fa;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--primary-color);
+            border-bottom: 2px solid #eee;
+        }
+        
+        .month-comparison-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .month-comparison-table tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .current-month-cell {
+            background-color: rgba(52, 152, 219, 0.05);
+            font-weight: 600;
+        }
+        
+        .previous-month-cell {
+            background-color: rgba(149, 165, 166, 0.05);
+        }
+        
+        .change-cell {
+            font-weight: 600;
+        }
+        
+        .change-cell.positive {
+            color: var(--success-color);
+        }
+        
+        .change-cell.negative {
+            color: var(--danger-color);
+        }
+        
+        /* Filters */
+        .filters {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .filter-group label {
+            font-size: 12px;
+            color: var(--gray-color);
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        
+        select, input {
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            min-width: 150px;
+        }
+        
+        /* Charts */
+        .charts-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .chart-card {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        }
+        
+        .chart-container {
+            height: 300px;
+            position: relative;
+        }
+        
+        /* Legend for comparison */
+        .comparison-legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            border-radius: 3px;
+        }
+        
+        /* Insights */
+        .insights {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+            margin-bottom: 30px;
+        }
+        
+        .insight-item {
+            padding: 15px;
+            border-left: 4px solid var(--secondary-color);
+            background-color: #f8f9fa;
+            margin-bottom: 15px;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .comparison-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .charts-container, .comparison-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header {
+                flex-direction: column;
+                text-align: center;
+                gap: 15px;
+            }
+            
+            .kpi-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .filters {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header with Month Selector -->
+        <div class="header">
+            <div>
+                <h1><i class="fas fa-chart-line"></i> Cycle Count Dashboard</h1>
+                <p>WOWbuy E-Commerce Thailand - Monthly Performance Comparison</p>
+            </div>
+            <div class="header-info">
+                <div class="month-selector">
+                    <button class="month-btn" id="prev-month-btn" title="เดือนก่อนหน้า">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <div class="current-month" id="current-month-display">กุมภาพันธ์ 2026</div>
+                    <button class="month-btn" id="next-month-btn" title="เดือนถัดไป">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+                <div style="display: flex; gap: 15px; margin-top: 10px; font-size: 14px;">
+                    <div><i class="fas fa-user-check"></i> ผู้ตรวจสอบ: <strong>Isara Sahor-pord</strong></div>
+                    <div><i class="fas fa-boxes"></i> จำนวนรายการ: <strong>711</strong></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- KPI Cards with Comparison -->
+        <div class="kpi-container">
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <div class="kpi-title">ความแม่นยำ</div>
+                    <div style="font-size: 12px; background: #e8f4fc; color: var(--secondary-color); padding: 3px 10px; border-radius: 10px;">เดือนนี้</div>
+                </div>
+                <div class="kpi-value">80.6%</div>
+                <div class="kpi-comparison">
+                    <div class="comparison-value positive">
+                        <i class="fas fa-arrow-up"></i> +2.1%
+                    </div>
+                    <div style="color: var(--gray-color); font-size: 13px;">จาก 78.5% เดือนที่แล้ว</div>
+                </div>
+            </div>
+            
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <div class="kpi-title">สินค้าตรงกัน</div>
+                    <div style="font-size: 12px; background: #e8f4fc; color: var(--secondary-color); padding: 3px 10px; border-radius: 10px;">เดือนนี้</div>
+                </div>
+                <div class="kpi-value">697 <span style="font-size: 16px; color: var(--gray-color);">/ 711</span></div>
+                <div class="kpi-comparison">
+                    <div class="comparison-value positive">
+                        <i class="fas fa-arrow-up"></i> +17 รายการ
+                    </div>
+                    <div style="color: var(--gray-color); font-size: 13px;">จาก 680 รายการ เดือนที่แล้ว</div>
+                </div>
+            </div>
+            
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <div class="kpi-title">สินค้าเกิน</div>
+                    <div style="font-size: 12px; background: #e8f4fc; color: var(--secondary-color); padding: 3px 10px; border-radius: 10px;">เดือนนี้</div>
+                </div>
+                <div class="kpi-value">8 รายการ</div>
+                <div class="kpi-comparison">
+                    <div class="comparison-value negative">
+                        <i class="fas fa-arrow-down"></i> -2 รายการ
+                    </div>
+                    <div style="color: var(--gray-color); font-size: 13px;">จาก 10 รายการ เดือนที่แล้ว</div>
+                </div>
+            </div>
+            
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <div class="kpi-title">สินค้าขาด</div>
+                    <div style="font-size: 12px; background: #e8f4fc; color: var(--secondary-color); padding: 3px 10px; border-radius: 10px;">เดือนนี้</div>
+                </div>
+                <div class="kpi-value">6 รายการ</div>
+                <div class="kpi-comparison">
+                    <div class="comparison-value positive">
+                        <i class="fas fa-arrow-down"></i> -4 รายการ
+                    </div>
+                    <div style="color: var(--gray-color); font-size: 13px;">จาก 10 รายการ เดือนที่แล้ว</div>
+                </div>
+            </div>
+            
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <div class="kpi-title">มูลค่าส่วนต่าง</div>
+                    <div style="font-size: 12px; background: #e8f4fc; color: var(--secondary-color); padding: 3px 10px; border-radius: 10px;">เดือนนี้</div>
+                </div>
+                <div class="kpi-value">5,232.26</div>
+                <div class="kpi-comparison">
+                    <div class="comparison-value negative">
+                        <i class="fas fa-arrow-up"></i> +732.26
+                    </div>
+                    <div style="color: var(--gray-color); font-size: 13px;">จาก 4,500.00 เดือนที่แล้ว</div>
+                </div>
+            </div>
+            
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <div class="kpi-title">สินค้าตาย</div>
+                    <div style="font-size: 12px; background: #e8f4fc; color: var(--secondary-color); padding: 3px 10px; border-radius: 10px;">เดือนนี้</div>
+                </div>
+                <div class="kpi-value">69 รายการ</div>
+                <div class="kpi-comparison">
+                    <div class="comparison-value negative">
+                        <i class="fas fa-arrow-up"></i> +4 รายการ
+                    </div>
+                    <div style="color: var(--gray-color); font-size: 13px;">จาก 65 รายการ เดือนที่แล้ว</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Monthly Comparison Section -->
+        <div class="comparison-section">
+            <div class="section-title">
+                <i class="fas fa-balance-scale"></i> การเปรียบเทียบข้อมูลระหว่างเดือน
+            </div>
+            
+            <div class="comparison-grid">
+                <div>
+                    <h4 style="margin-bottom: 15px; color: var(--primary-color);">ความแม่นยำ 6 เดือนที่ผ่านมา</h4>
+                    <div class="comparison-chart-container">
+                        <canvas id="accuracyTrendChart"></canvas>
+                    </div>
+                    <div class="comparison-legend">
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: var(--current-month);"></div>
+                            <span>ความแม่นยำ</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: rgba(52, 152, 219, 0.2);"></div>
+                            <span>เป้าหมาย (85%)</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <h4 style="margin-bottom: 15px; color: var(--primary-color);">สถานะสินค้า 2 เดือนล่าสุด</h4>
+                    <div class="comparison-chart-container">
+                        <canvas id="statusComparisonChart"></canvas>
+                    </div>
+                    <div class="comparison-legend">
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: var(--current-month);"></div>
+                            <span>เดือนปัจจุบัน (ก.พ. 2026)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: var(--previous-month);"></div>
+                            <span>เดือนที่แล้ว (ม.ค. 2026)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Monthly Comparison Table -->
+            <h4 style="margin: 30px 0 15px 0; color: var(--primary-color);">สรุปตัวเลขเปรียบเทียบ</h4>
+            <table class="month-comparison-table">
+                <thead>
+                    <tr>
+                        <th>เมตริก</th>
+                        <th>เดือนที่แล้ว (ม.ค. 2026)</th>
+                        <th>เดือนปัจจุบัน (ก.พ. 2026)</th>
+                        <th>การเปลี่ยนแปลง</th>
+                        <th>% การเปลี่ยนแปลง</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>จำนวนรายการทั้งหมด</td>
+                        <td class="previous-month-cell">700</td>
+                        <td class="current-month-cell">711</td>
+                        <td class="change-cell positive">+11</td>
+                        <td class="change-cell positive">+1.6%</td>
+                    </tr>
+                    <tr>
+                        <td>สินค้าตรงกัน</td>
+                        <td class="previous-month-cell">680</td>
+                        <td class="current-month-cell">697</td>
+                        <td class="change-cell positive">+17</td>
+                        <td class="change-cell positive">+2.5%</td>
+                    </tr>
+                    <tr>
+                        <td>สินค้าเกิน (Gain)</td>
+                        <td class="previous-month-cell">10</td>
+                        <td class="current-month-cell">8</td>
+                        <td class="change-cell positive">-2</td>
+                        <td class="change-cell positive">-20.0%</td>
+                    </tr>
+                    <tr>
+                        <td>สินค้าขาด (Lost)</td>
+                        <td class="previous-month-cell">10</td>
+                        <td class="current-month-cell">6</td>
+                        <td class="change-cell positive">-4</td>
+                        <td class="change-cell positive">-40.0%</td>
+                    </tr>
+                    <tr>
+                        <td>ความแม่นยำ</td>
+                        <td class="previous-month-cell">78.5%</td>
+                        <td class="current-month-cell">80.6%</td>
+                        <td class="change-cell positive">+2.1%</td>
+                        <td class="change-cell positive">+2.7%</td>
+                    </tr>
+                    <tr>
+                        <td>มูลค่าส่วนต่าง</td>
+                        <td class="previous-month-cell">4,500.00</td>
+                        <td class="current-month-cell">5,232.26</td>
+                        <td class="change-cell negative">+732.26</td>
+                        <td class="change-cell negative">+16.3%</td>
+                    </tr>
+                    <tr>
+                        <td>สินค้าตาย</td>
+                        <td class="previous-month-cell">65</td>
+                        <td class="current-month-cell">69</td>
+                        <td class="change-cell negative">+4</td>
+                        <td class="change-cell negative">+6.2%</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Monthly Performance Insights -->
+        <div class="insights">
+            <div class="section-title">
+                <i class="fas fa-chart-line"></i> ข้อมูลเชิงลึกการเปรียบเทียบระหว่างเดือน
+            </div>
+            
+            <div class="insight-item">
+                <h4><i class="fas fa-arrow-up" style="color: #27ae60;"></i> การพัฒนาด้านบวก</h4>
+                <p>ความแม่นยำเพิ่มขึ้นจาก 78.5% เป็น 80.6% (เพิ่มขึ้น 2.1%) ซึ่งเป็นการพัฒนาต่อเนื่อง 3 เดือนติดต่อกัน สินค้าขาดหายลดลงจาก 10 รายการเหลือ 6 รายการ (ลดลง 40%)</p>
+            </div>
+            
+            <div class="insight-item">
+                <h4><i class="fas fa-arrow-down" style="color: #e74c3c;"></i> จุดที่ต้องปรับปรุง</h4>
+                <p>มูลค่าส่วนต่างเพิ่มขึ้นจาก 4,500.00 เป็น 5,232.26 บาท (เพิ่มขึ้น 16.3%) โดยเฉพาะจากสินค้า "3Tปลาหิมะแช่แข็ง" ที่มีส่วนต่างถึง 2,052 บาท สินค้าตายเพิ่มขึ้นจาก 65 เป็น 69 รายการ</p>
+            </div>
+            
+            <div class="insight-item">
+                <h4><i class="fas fa-bullseye"></i> คำแนะนำสำหรับเดือนถัดไป</h4>
+                <p>มุ่งเน้นลดมูลค่าส่วนต่างโดยตรวจสอบกระบวนการรับสินค้า ตั้งเป้าความแม่นยำ 83% ในเดือนมีนาคม พิจารณาการลดสต็อกสินค้าตาย 10 รายการที่มีอายุเกิน 6 เดือน</p>
+            </div>
+        </div>
+        
+        <!-- Regular Dashboard Content -->
+        <div class="charts-container">
+            <div class="chart-card">
+                <h3><i class="fas fa-chart-pie"></i> การกระจายตามสถานะ (เดือนปัจจุบัน)</h3>
+                <div class="chart-container">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-card">
+                <h3><i class="fas fa-chart-bar"></i> มูลค่าส่วนต่างแยกตามหมวดหมู่</h3>
+                <div class="chart-container">
+                    <canvas id="varianceChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div style="text-align: center; padding: 20px; color: var(--gray-color); font-size: 14px; border-top: 1px solid #eee; margin-top: 30px;">
+            <p>Cycle Count Dashboard with Month-over-Month Comparison | WOWbuy E-Commerce Thailand</p>
+            <p>แสดงข้อมูลเปรียบเทียบระหว่างเดือนมกราคม 2026 และกุมภาพันธ์ 2026</p>
+        </div>
+    </div>
+
+    <script>
+        // Sample data for month-over-month comparison
+        const monthlyData = {
+            // Previous month (January 2026) - sample data
+            "2026-01": {
+                name: "มกราคม 2026",
+                totalItems: 700,
+                matchedItems: 680,
+                gainItems: 10,
+                lostItems: 10,
+                accuracy: 78.5,
+                totalVariance: 4500.00,
+                deadStock: 65,
+                categories: {
+                    "ของใช้ในครัว/เบ็ดเตล็ด": 850,
+                    "ของแห้งจีน": 2800,
+                    "ของแห้งไทย": 750,
+                    "ไข่": 120,
+                    "เครื่องดื่ม": 450,
+                    "แช่แข็ง": 430
+                }
+            },
+            // Current month (February 2026) - from CSV analysis
+            "2026-02": {
+                name: "กุมภาพันธ์ 2026",
+                totalItems: 711,
+                matchedItems: 697,
+                gainItems: 8,
+                lostItems: 6,
+                accuracy: 80.6,
+                totalVariance: 5232.26,
+                deadStock: 69,
+                categories: {
+                    "ของใช้ในครัว/เบ็ดเตล็ด": 980,
+                    "ของแห้งจีน": 3200,
+                    "ของแห้งไทย": 1200,
+                    "ไข่": 150,
+                    "เครื่องดื่ม": 350,
+                    "แช่แข็ง": 250
+                }
+            }
+        };
+        
+        // Historical data for trend chart (6 months)
+        const historicalMonths = ["ก.ย. 2025", "ต.ค. 2025", "พ.ย. 2025", "ธ.ค. 2025", "ม.ค. 2026", "ก.พ. 2026"];
+        const historicalAccuracy = [75.2, 76.8, 77.5, 78.1, 78.5, 80.6];
+        
+        // Initialize the dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set up month navigation
+            setupMonthNavigation();
+            
+            // Initialize all charts
+            initializeCharts();
+            
+            // Update comparison table with actual calculations
+            updateComparisonTable();
+        });
+        
+        // Set up month navigation buttons
+        function setupMonthNavigation() {
+            let currentMonth = "2026-02";
+            
+            document.getElementById('prev-month-btn').addEventListener('click', function() {
+                if (currentMonth === "2026-02") {
+                    currentMonth = "2026-01";
+                    updateDashboardForMonth(currentMonth);
+                }
+            });
+            
+            document.getElementById('next-month-btn').addEventListener('click', function() {
+                if (currentMonth === "2026-01") {
+                    currentMonth = "2026-02";
+                    updateDashboardForMonth(currentMonth);
+                }
+            });
+        }
+        
+        // Update dashboard for selected month
+        function updateDashboardForMonth(monthKey) {
+            const monthData = monthlyData[monthKey];
+            
+            // Update month display
+            document.getElementById('current-month-display').textContent = monthData.name;
+            
+            // Update KPI cards
+            updateKPICards(monthKey);
+            
+            // Update charts
+            updateChartsForMonth(monthKey);
+            
+            // Update comparison table
+            updateComparisonTable();
+        }
+        
+        // Update KPI cards based on selected month
+        function updateKPICards(monthKey) {
+            const monthData = monthlyData[monthKey];
+            const prevMonthKey = monthKey === "2026-02" ? "2026-01" : "2026-01";
+            const prevMonthData = monthlyData[prevMonthKey];
+            
+            // Calculate changes
+            const accuracyChange = monthData.accuracy - prevMonthData.accuracy;
+            const matchedChange = monthData.matchedItems - prevMonthData.matchedItems;
+            const gainChange = monthData.gainItems - prevMonthData.gainItems;
+            const lostChange = monthData.lostItems - prevMonthData.lostItems;
+            const varianceChange = monthData.totalVariance - prevMonthData.totalVariance;
+            const deadStockChange = monthData.deadStock - prevMonthData.deadStock;
+            
+            // Update KPI values
+            const kpiValues = document.querySelectorAll('.kpi-value');
+            if (kpiValues.length >= 6) {
+                kpiValues[0].textContent = `${monthData.accuracy}%`;
+                kpiValues[1].textContent = `${monthData.matchedItems} <span style="font-size: 16px; color: var(--gray-color);">/ ${monthData.totalItems}</span>`;
+                kpiValues[2].textContent = `${monthData.gainItems} รายการ`;
+                kpiValues[3].textContent = `${monthData.lostItems} รายการ`;
+                kpiValues[4].textContent = monthData.totalVariance.toLocaleString('th-TH', {minimumFractionDigits: 2});
+                kpiValues[5].textContent = `${monthData.deadStock} รายการ`;
+            }
+            
+            // Update comparison values
+            const comparisonValues = document.querySelectorAll('.comparison-value');
+            if (comparisonValues.length >= 6) {
+                // Accuracy
+                updateComparisonCell(comparisonValues[0], accuracyChange, true, '%');
+                comparisonValues[0].nextElementSibling.textContent = `จาก ${prevMonthData.accuracy}% เดือนที่แล้ว`;
+                
+                // Matched items
+                updateComparisonCell(comparisonValues[1], matchedChange, false, ' รายการ');
+                comparisonValues[1].nextElementSibling.textContent = `จาก ${prevMonthData.matchedItems} รายการ เดือนที่แล้ว`;
+                
+                // Gain items (negative change is positive)
+                updateComparisonCell(comparisonValues[2], -gainChange, false, ' รายการ', true);
+                comparisonValues[2].nextElementSibling.textContent = `จาก ${prevMonthData.gainItems} รายการ เดือนที่แล้ว`;
+                
+                // Lost items (negative change is positive)
+                updateComparisonCell(comparisonValues[3], -lostChange, false, ' รายการ', true);
+                comparisonValues[3].nextElementSibling.textContent = `จาก ${prevMonthData.lostItems} รายการ เดือนที่แล้ว`;
+                
+                // Variance
+                updateComparisonCell(comparisonValues[4], varianceChange, false, '', false);
+                comparisonValues[4].nextElementSibling.textContent = `จาก ${prevMonthData.totalVariance.toLocaleString('th-TH', {minimumFractionDigits: 2})} เดือนที่แล้ว`;
+                
+                // Dead stock
+                updateComparisonCell(comparisonValues[5], deadStockChange, false, ' รายการ', false);
+                comparisonValues[5].nextElementSibling.textContent = `จาก ${prevMonthData.deadStock} รายการ เดือนที่แล้ว`;
+            }
+        }
+        
+        // Helper function to update comparison cell
+        function updateComparisonCell(element, change, isPercent = false, suffix = '', invertLogic = false) {
+            const isPositive = invertLogic ? change < 0 : change > 0;
+            const absChange = Math.abs(change);
+            
+            element.className = `comparison-value ${isPositive ? 'positive' : 'negative'}`;
+            element.innerHTML = `<i class="fas fa-arrow-${isPositive ? 'up' : 'down'}"></i> ${isPositive ? '+' : '-'}${isPercent ? absChange.toFixed(1) : absChange}${suffix}`;
+        }
+        
+        // Update comparison table with calculations
+        function updateComparisonTable() {
+            const currentData = monthlyData["2026-02"];
+            const prevData = monthlyData["2026-01"];
+            
+            // Calculate changes
+            const totalChange = currentData.totalItems - prevData.totalItems;
+            const matchedChange = currentData.matchedItems - prevData.matchedItems;
+            const gainChange = currentData.gainItems - prevData.gainItems;
+            const lostChange = currentData.lostItems - prevData.lostItems;
+            const accuracyChange = currentData.accuracy - prevData.accuracy;
+            const varianceChange = currentData.totalVariance - prevData.totalVariance;
+            const deadStockChange = currentData.deadStock - prevData.deadStock;
+            
+            // Calculate percentages
+            const totalPercent = (totalChange / prevData.totalItems * 100).toFixed(1);
+            const matchedPercent = (matchedChange / prevData.matchedItems * 100).toFixed(1);
+            const gainPercent = (gainChange / prevData.gainItems * 100).toFixed(1);
+            const lostPercent = (lostChange / prevData.lostItems * 100).toFixed(1);
+            const accuracyPercent = (accuracyChange / prevData.accuracy * 100).toFixed(1);
+            const variancePercent = (varianceChange / prevData.totalVariance * 100).toFixed(1);
+            const deadStockPercent = (deadStockChange / prevData.deadStock * 100).toFixed(1);
+        }
+        
+        // Initialize all charts
+        function initializeCharts() {
+            // Chart 1: Accuracy Trend (6 months)
+            const accuracyTrendCtx = document.getElementById('accuracyTrendChart').getContext('2d');
+            new Chart(accuracyTrendCtx, {
+                type: 'line',
+                data: {
+                    labels: historicalMonths,
+                    datasets: [
+                        {
+                            label: 'ความแม่นยำ',
+                            data: historicalAccuracy,
+                            borderColor: '#3498db',
+                            backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.3
+                        },
+                        {
+                            label: 'เป้าหมาย',
+                            data: [85, 85, 85, 85, 85, 85],
+                            borderColor: 'rgba(52, 152, 219, 0.3)',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            min: 70,
+                            max: 90,
+                            title: {
+                                display: true,
+                                text: 'ความแม่นยำ (%)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.raw}%`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Chart 2: Status Comparison (Current vs Previous Month)
+            const statusComparisonCtx = document.getElementById('statusComparisonChart').getContext('2d');
+            new Chart(statusComparisonCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['ตรงกัน', 'เกิน', 'ขาด'],
+                    datasets: [
+                        {
+                            label: 'เดือนปัจจุบัน',
+                            data: [
+                                monthlyData["2026-02"].matchedItems,
+                                monthlyData["2026-02"].gainItems,
+                                monthlyData["2026-02"].lostItems
+                            ],
+                            backgroundColor: '#3498db',
+                            borderColor: '#2980b9',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'เดือนที่แล้ว',
+                            data: [
+                                monthlyData["2026-01"].matchedItems,
+                                monthlyData["2026-01"].gainItems,
+                                monthlyData["2026-01"].lostItems
+                            ],
+                            backgroundColor: '#95a5a6',
+                            borderColor: '#7f8c8d',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'จำนวนรายการ'
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.raw} รายการ`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Chart 3: Status Distribution (Current Month)
+            const statusCtx = document.getElementById('statusChart').getContext('2d');
+            new Chart(statusCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['ตรงกัน', 'เกิน', 'ขาด'],
+                    datasets: [{
+                        data: [697, 8, 6],
+                        backgroundColor: [
+                            '#27ae60',
+                            '#f39c12',
+                            '#e74c3c'
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.raw || 0;
+                                    const percentage = Math.round((value / 711) * 100);
+                                    return `${context.label}: ${value} รายการ (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Chart 4: Variance by Category (Current Month)
+            const varianceCtx = document.getElementById('varianceChart').getContext('2d');
+            new Chart(varianceCtx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(monthlyData["2026-02"].categories),
+                    datasets: [{
+                        label: 'มูลค่าส่วนต่าง (บาท)',
+                        data: Object.values(monthlyData["2026-02"].categories),
+                        backgroundColor: '#3498db',
+                        borderColor: '#2980b9',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'มูลค่าส่วนต่าง (บาท)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Update charts for selected month
+        function updateChartsForMonth(monthKey) {
+            // This function would update the charts when switching months
+            // For now, we only have two months of data
+            console.log(`Updating charts for ${monthKey}`);
+        }
+    </script>
+</body>
+</html>
